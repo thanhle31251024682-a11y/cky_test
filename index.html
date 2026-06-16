@@ -111,6 +111,7 @@ main {
   border-radius:calc(var(--radius) - 2px);
 }
 .upload-placeholder { text-align:center; z-index:1; }
+.upload-placeholder.hidden { display:none; }
 .upload-icon { font-size:44px; margin-bottom:8px; }
 .upload-title { font-size:15px; font-weight:700; color:var(--tomato); }
 .upload-sub { font-size:12px; color:var(--muted); margin-top:4px; }
@@ -241,12 +242,15 @@ main {
 
 /* ── Error ── */
 .error-box {
-  display:none; background:#fff0f0;
+  background:#fff0f0;
   border:1.5px solid #ffb8b8; border-radius:10px;
   padding:12px 16px; font-size:13px;
   color:var(--tomato); margin-top:10px; font-weight:500;
 }
-.error-box.show { display:block; }
+.error-box.hidden { display:none; }
+
+/* ── Preview Image ── */
+.preview.hidden { display:none; }
 
 /* ── Footer ── */
 footer {
@@ -277,40 +281,40 @@ footer span { color:var(--coral); font-weight:600; }
       <div class="panel-head">🍽️ 1. Tải ảnh khay cơm</div>
       <div class="panel-body">
 
-        <div class="model-status loading-model" id="model-status">
+        <div class="model-status loading-model" id="model-status" role="status" aria-live="polite" aria-label="Model loading status">
           <div class="dot pulse"></div>
           <span>Đang tải model AI...</span>
         </div>
 
-        <label for="file-input">
-          <div class="upload-zone" id="drop-zone">
+        <label for="file-input" aria-label="Upload image area">
+          <div class="upload-zone" id="drop-zone" role="button" tabindex="0" aria-pressed="false">
             <div class="upload-placeholder" id="placeholder">
               <div class="upload-icon">📸</div>
               <div class="upload-title">Chọn hoặc kéo thả ảnh</div>
               <div class="upload-sub">Chụp thẳng, đủ sáng, thấy rõ khay</div>
             </div>
-            <img class="preview" id="preview" style="display:none" alt="preview"/>
+            <img class="preview hidden" id="preview" alt="preview"/>
           </div>
         </label>
-        <input type="file" id="file-input" accept="image/*"/>
+        <input type="file" id="file-input" accept="image/*" aria-label="Select image file"/>
 
         <div class="btn-row">
-          <button class="btn btn-secondary" onclick="document.getElementById('file-input').click()">
+          <button class="btn btn-secondary" onclick="document.getElementById('file-input').click()" aria-label="Choose image from device">
             📁 Chọn ảnh
           </button>
-          <button class="btn btn-secondary" onclick="openCamera()">
+          <button class="btn btn-secondary" onclick="openCamera()" aria-label="Take photo with camera">
             📷 Camera
           </button>
         </div>
 
-        <div class="loading" id="loading">
+        <div class="loading" id="loading" role="status" aria-live="polite" aria-label="Processing status">
           <div class="spinner"></div>
           <span id="loading-text">Đang xử lý...</span>
         </div>
-        <div class="error-box" id="error-box"></div>
+        <div class="error-box hidden" id="error-box" role="alert" aria-live="assertive"></div>
 
         <button class="btn btn-primary" id="analyze-btn"
-                style="margin-top:14px;width:100%" disabled>
+                aria-label="Analyze image and calculate total price" disabled>
           🔍 Phân tích & tính tiền
         </button>
       </div>
@@ -322,7 +326,7 @@ footer span { color:var(--coral); font-weight:600; }
     <div class="panel">
       <div class="panel-head">🔬 2. Kết quả phân tích từng ngăn</div>
       <div class="panel-body">
-        <div id="results-area">
+        <div id="results-area" role="region" aria-label="Analysis results">
           <div class="empty">
             <div class="empty-icon">🍽️</div>
             <div class="empty-text">Upload ảnh khay cơm để bắt đầu</div>
@@ -335,8 +339,7 @@ footer span { color:var(--coral); font-weight:600; }
 
 <footer>
   Đồ án Trí tuệ nhân tạo · <span>UEH</span> &nbsp;·&nbsp;
-  Model: <span>MobileNetV2</span> · Accuracy: <span>88.88%</span> ·
-  OpenCV morphological detection (không dùng YOLO)
+  Model: <span>MobileNetV2</span> · Accuracy: <span>88.88%</span>
 </footer>
 
 <script>
@@ -369,6 +372,9 @@ const MENU = {
 
 const CONF_THRESH = 0.45;
 const IMG_SIZE    = 224;
+const MAX_IMG_SIZE = 1024;
+const MIN_IMG_WIDTH = 400;
+const MIN_IMG_HEIGHT = 300;
 
 // ── Load TF.js model ───────────────────────────────────────
 let model = null;
@@ -384,11 +390,13 @@ async function loadModel() {
 
     modelStatus.className = 'model-status ready';
     modelStatus.innerHTML = '<div class="dot green"></div><span>Model sẵn sàng ✓</span>';
+    document.getElementById('analyze-btn').disabled = false;
     console.log('✅ Model loaded');
   } catch(e) {
     modelStatus.className = 'model-status error';
     modelStatus.innerHTML = `<div class="dot red"></div><span>Lỗi tải model: ${e.message}</span>`;
-    console.error(e);
+    console.error('Model load error:', e);
+    showError('Không thể tải model AI. Kiểm tra file model.json.');
   }
 }
 loadModel();
@@ -405,32 +413,82 @@ const errorBox    = document.getElementById('error-box');
 const resultsArea = document.getElementById('results-area');
 
 let currentImg = null;
+let isProcessing = false;
 
 fileInput.addEventListener('change', e => {
   if (e.target.files[0]) loadPreview(e.target.files[0]);
 });
+
 dropZone.addEventListener('dragover', e => {
-  e.preventDefault(); dropZone.style.borderColor='var(--tomato)';
+  e.preventDefault();
+  dropZone.style.borderColor = 'var(--tomato)';
 });
-dropZone.addEventListener('dragleave', () => { dropZone.style.borderColor=''; });
+
+dropZone.addEventListener('dragleave', () => {
+  dropZone.style.borderColor = '';
+});
+
 dropZone.addEventListener('drop', e => {
-  e.preventDefault(); dropZone.style.borderColor='';
+  e.preventDefault();
+  dropZone.style.borderColor = '';
   const f = e.dataTransfer.files[0];
   if (f && f.type.startsWith('image/')) loadPreview(f);
 });
+
+// Keyboard support for drop zone
+dropZone.addEventListener('keydown', e => {
+  if (e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault();
+    document.getElementById('file-input').click();
+  }
+});
+
+function validateImage(img) {
+  if (img.naturalWidth < MIN_IMG_WIDTH || img.naturalHeight < MIN_IMG_HEIGHT) {
+    throw new Error(`Ảnh quá nhỏ (tối thiểu ${MIN_IMG_WIDTH}x${MIN_IMG_HEIGHT}px). Chụp lại với chất lượng cao hơn.`);
+  }
+}
+
+function resizeImage(img) {
+  const w = img.naturalWidth;
+  const h = img.naturalHeight;
+  if (w <= MAX_IMG_SIZE && h <= MAX_IMG_SIZE) return img;
+
+  const scale = Math.min(MAX_IMG_SIZE / w, MAX_IMG_SIZE / h);
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(w * scale);
+  canvas.height = Math.round(h * scale);
+  canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+
+  const newImg = new Image();
+  newImg.src = canvas.toDataURL('image/jpeg', 0.9);
+  return newImg;
+}
 
 function loadPreview(file) {
   const url = URL.createObjectURL(file);
   const img  = new Image();
   img.onload = () => {
-    currentImg = img;
-    preview.src = url;
-    preview.style.display = 'block';
-    placeholder.style.display = 'none';
-    dropZone.classList.add('has-image');
-    analyzeBtn.disabled = false;
-    errorBox.classList.remove('show');
-    resultsArea.innerHTML = `<div class="empty"><div class="empty-icon">✅</div><div class="empty-text">Ảnh đã tải · Nhấn Phân tích để bắt đầu</div></div>`;
+    try {
+      validateImage(img);
+      currentImg = resizeImage(img);
+      preview.src = currentImg.src;
+      placeholder.classList.add('hidden');
+      preview.classList.remove('hidden');
+      dropZone.classList.add('has-image');
+      analyzeBtn.disabled = !model;
+      errorBox.classList.add('hidden');
+      resultsArea.innerHTML = `<div class="empty"><div class="empty-icon">✅</div><div class="empty-text">Ảnh đã tải · Nhấn Phân tích để bắt đầu</div></div>`;
+    } catch (e) {
+      showError(e.message);
+      currentImg = null;
+      analyzeBtn.disabled = true;
+    }
+  };
+  img.onerror = () => {
+    showError('Lỗi tải ảnh. Vui lòng chọn file ảnh hợp lệ.');
+    currentImg = null;
+    analyzeBtn.disabled = true;
   };
   img.src = url;
 }
@@ -440,6 +498,11 @@ function openCamera() {
   fileInput.click();
 }
 
+function showError(msg) {
+  errorBox.textContent = msg;
+  errorBox.classList.remove('hidden');
+}
+
 // ── Cell detection (morphological-style bằng Canvas) ───────
 function detectCells(img) {
   const W = img.naturalWidth  || img.width;
@@ -447,7 +510,8 @@ function detectCells(img) {
 
   // Draw image to canvas để lấy pixel data
   const canvas = document.createElement('canvas');
-  canvas.width = W; canvas.height = H;
+  canvas.width = W; 
+  canvas.height = H;
   const ctx = canvas.getContext('2d');
   ctx.drawImage(img, 0, 0);
   const data = ctx.getImageData(0, 0, W, H).data;
@@ -507,7 +571,11 @@ function detectCells(img) {
     const result = [], cur = [arr[0]];
     for (let i = 1; i < arr.length; i++) {
       if (arr[i] - cur[cur.length-1] < gap) cur.push(arr[i]);
-      else { result.push(Math.round(cur.reduce((a,b)=>a+b)/cur.length)); cur.length=0; cur.push(arr[i]); }
+      else {
+        result.push(Math.round(cur.reduce((a,b)=>a+b)/cur.length));
+        cur.length=0;
+        cur.push(arr[i]);
+      }
     }
     result.push(Math.round(cur.reduce((a,b)=>a+b)/cur.length));
     return result;
@@ -545,6 +613,10 @@ function detectCells(img) {
       }
     }
   }
+
+  // Clean up canvas context
+  ctx.clearRect(0, 0, W, H);
+
   return { cells, W, H };
 }
 
@@ -566,8 +638,9 @@ async function classifyCell(canvas) {
     const normalized = resized.toFloat().div(255.0).expandDims(0);
     const preds = model.predict(normalized);
     const arr   = preds.dataSync();
-    const idx   = arr.indexOf(Math.max(...arr));
-    return { cls: CLASS_NAMES[idx], conf: arr[idx] };
+    const idx   = Array.from(arr).indexOf(Math.max(...arr));
+    const conf  = arr[idx];
+    return { cls: CLASS_NAMES[idx], conf };
   });
 }
 
@@ -586,9 +659,11 @@ const LOADING_MSGS = [
 let loadIdx = 0, loadTimer = null;
 
 async function analyze() {
-  if (!currentImg || !model) return;
+  if (!currentImg || !model || isProcessing) return;
+
+  isProcessing = true;
   analyzeBtn.disabled = true;
-  errorBox.classList.remove('show');
+  errorBox.classList.add('hidden');
   loadIdx = 0;
   loadingTxt.textContent = LOADING_MSGS[0];
   loadingEl.classList.add('show');
@@ -596,7 +671,7 @@ async function analyze() {
     loadIdx = (loadIdx+1) % LOADING_MSGS.length;
     loadingTxt.textContent = LOADING_MSGS[loadIdx];
   }, 900);
-  resultsArea.innerHTML = `<div class="empty"><div class="spinner" style="margin:0 auto;width:28px;height:28px"></div></div>`;
+  resultsArea.innerHTML = `<div class="empty"><div class="spinner" style="margin:0 auto;width:28px;height:28px;border:2.5px solid var(--border);border-top-color:var(--coral)"></div></div>`;
 
   try {
     const { cells, W, H } = detectCells(currentImg);
@@ -613,19 +688,26 @@ async function analyze() {
       const valid = conf >= CONF_THRESH;
       const thumb = canvas.toDataURL('image/jpeg', 0.85);
       if (valid) total += info.price;
-      items.push({ idx:i+1, thumb, cls, name: valid ? info.display : 'Không rõ',
-                   emoji: valid ? info.emoji : '❓', price: valid ? info.price : 0,
-                   conf: Math.round(conf*1000)/10, valid });
+      items.push({
+        idx: i+1,
+        thumb,
+        cls,
+        name: valid ? info.display : 'Không rõ',
+        emoji: valid ? info.emoji : '❓',
+        price: valid ? info.price : 0,
+        conf: Math.round(conf*1000)/10,
+        valid
+      });
     }
 
     renderResults(items, total);
   } catch(e) {
-    errorBox.textContent = e.message;
-    errorBox.classList.add('show');
+    showError(e.message);
     resultsArea.innerHTML = `<div class="empty"><div class="empty-icon">❌</div><div class="empty-text">${e.message}</div></div>`;
   } finally {
     clearInterval(loadTimer);
     loadingEl.classList.remove('show');
+    isProcessing = false;
     analyzeBtn.disabled = false;
   }
 }
@@ -657,7 +739,7 @@ function renderResults(items, total) {
   html += `</div>`;
 
   // Bill
-  html += `<div class="bill">
+  html += `<div class="bill" role="region" aria-label="Invoice summary">
     <div class="bill-title">🧾 Hóa đơn chi tiết</div>`;
   validItems.forEach(it => {
     html += `<div class="bill-row">
