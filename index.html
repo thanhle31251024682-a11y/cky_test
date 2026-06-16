@@ -340,7 +340,7 @@ footer span { color:var(--coral); font-weight:600; }
 
 <footer>
   Đồ án Trí tuệ nhân tạo · <span>UEH</span> &nbsp;·&nbsp;
-  Model: <span>MobileNetV2</span> (TensorFlow Hub)
+  Model: <span>MobileNetV2</span> (TensorFlow Hub) · Không cần model.json ✓
 </footer>
 
 <script>
@@ -362,30 +362,33 @@ const MAX_IMG_SIZE = 1024;
 const MIN_IMG_WIDTH = 400;
 const MIN_IMG_HEIGHT = 300;
 
-// ── Load MobileNet model ───────────────────────────────────
+// ── Load MobileNet model from TensorFlow Hub ───────────────
 let model = null;
 const modelStatus = document.getElementById('model-status');
 
 async function loadModel() {
   try {
-    console.log('Loading MobileNet model from TensorFlow Hub...');
-    model = await mobilenet.load();
+    console.log('Loading MobileNet v2 from TensorFlow Hub...');
+    model = await mobilenet.load({ version: 2, alpha: 1.0 });
     
-    // Warm up
+    // Warm up the model
     const dummy = tf.zeros([1, 224, 224, 3]);
     await model.classify(dummy);
     dummy.dispose();
+    tf.dispose();
 
     modelStatus.className = 'model-status ready';
     modelStatus.innerHTML = '<div class="dot green"></div><span>Model sẵn sàng ✓</span>';
     document.getElementById('analyze-btn').disabled = false;
-    console.log('✅ MobileNet model loaded');
+    console.log('✅ MobileNet model loaded successfully from TensorFlow Hub');
   } catch(e) {
     modelStatus.className = 'model-status error';
     modelStatus.innerHTML = `<div class="dot red"></div><span>Lỗi tải model: ${e.message}</span>`;
-    console.error('Model load error:', e);
+    console.error('❌ Model load error:', e);
   }
 }
+
+// Load model when page loads
 loadModel();
 
 // ── UI elements ────────────────────────────────────────────
@@ -422,11 +425,10 @@ dropZone.addEventListener('drop', e => {
   if (f && f.type.startsWith('image/')) loadPreview(f);
 });
 
-// Keyboard support for drop zone
 dropZone.addEventListener('keydown', e => {
   if (e.key === 'Enter' || e.key === ' ') {
     e.preventDefault();
-    document.getElementById('file-input').click();
+    fileInput.click();
   }
 });
 
@@ -490,12 +492,11 @@ function showError(msg) {
   errorBox.classList.remove('hidden');
 }
 
-// ── Cell detection (morphological-style bằng Canvas) ───────
+// ── Cell detection ─────────────────────────────────────────
 function detectCells(img) {
   const W = img.naturalWidth  || img.width;
   const H = img.naturalHeight || img.height;
 
-  // Draw image to canvas để lấy pixel data
   const canvas = document.createElement('canvas');
   canvas.width = W; 
   canvas.height = H;
@@ -503,34 +504,29 @@ function detectCells(img) {
   ctx.drawImage(img, 0, 0);
   const data = ctx.getImageData(0, 0, W, H).data;
 
-  // Grayscale + threshold (giống OpenCV)
   const gray = new Uint8Array(W * H);
   for (let i = 0; i < W * H; i++) {
     gray[i] = Math.round(0.299*data[i*4] + 0.587*data[i*4+1] + 0.114*data[i*4+2]);
   }
 
-  // Morphological horizontal projection: tìm hàng sáng
   const hProj = new Float32Array(H);
   const vProj = new Float32Array(W);
   const THRESH = 100;
 
-  // Horizontal kernel width = W/5
   const hKW = Math.floor(W / 5);
   for (let y = 0; y < H; y++) {
     let sum = 0, count = 0;
     for (let x = 0; x + hKW < W; x++) {
-      // Check if entire span is bright
       let allBright = true;
       for (let k = 0; k < hKW; k++) {
         if (gray[y * W + x + k] < THRESH) { allBright = false; break; }
       }
-      if (allBright) { sum++; }
+      if (allBright) sum++;
       count++;
     }
     hProj[y] = count > 0 ? sum / count : 0;
   }
 
-  // Vertical kernel height = H/5
   const vKH = Math.floor(H / 5);
   for (let x = 0; x < W; x++) {
     let sum = 0, count = 0;
@@ -548,7 +544,6 @@ function detectCells(img) {
   const hMax = Math.max(...hProj);
   const vMax = Math.max(...vProj);
 
-  // Find positions above 40% of max
   const hPos = [], vPos = [];
   for (let y = 0; y < H; y++) if (hProj[y] > hMax * 0.4) hPos.push(y);
   for (let x = 0; x < W; x++) if (vProj[x] > vMax * 0.4) vPos.push(x);
@@ -601,13 +596,12 @@ function detectCells(img) {
     }
   }
 
-  // Clean up canvas context
   ctx.clearRect(0, 0, W, H);
 
   return { cells, W, H };
 }
 
-// ── Crop cell từ img ───────────────────────────────────────
+// ── Crop cell ───────────────────────────────────────────
 function cropCell(img, x1, y1, x2, y2) {
   const canvas = document.createElement('canvas');
   canvas.width  = x2 - x1;
@@ -616,7 +610,7 @@ function cropCell(img, x1, y1, x2, y2) {
   return canvas;
 }
 
-// ── Classify một cell canvas bằng MobileNet ────────────────
+// ── Classify with MobileNet ────────────────────────────────
 async function classifyCell(canvas) {
   const img = tf.browser.fromPixels(canvas);
   const predictions = await model.classify(img);
@@ -624,10 +618,10 @@ async function classifyCell(canvas) {
   return predictions;
 }
 
-// ── Format VND ────────────────────────────────────────────
+// ── Format VND ──────────────────────────────────────────
 function fmtVND(n) { return n.toLocaleString('vi-VN') + 'đ'; }
 
-// ── Analyze ───────────────────────────────────────────────
+// ── Analyze button ──────────────────────────────────────
 analyzeBtn.addEventListener('click', analyze);
 
 const LOADING_MSGS = [
@@ -665,20 +659,18 @@ async function analyze() {
       const canvas = cropCell(currentImg, x1, y1, x2, y2);
       const predictions = await classifyCell(canvas);
       
-      // Find best matching food item from predictions
       const bestPred = predictions[0];
       const conf = bestPred.probability;
       const className = bestPred.className.toLowerCase();
       
-      // Simple mapping - check if className contains food-related keywords
       let foodKey = 'rice';
       const keywords = {
-        'rice': ['rice', 'white rice', 'cooked rice'],
+        'rice': ['rice', 'cooked rice'],
         'egg': ['egg', 'fried egg'],
-        'fish': ['fish', 'salmon', 'catfish'],
+        'fish': ['fish', 'salmon'],
         'meat': ['meat', 'beef', 'pork', 'chicken'],
         'soup': ['soup', 'broth'],
-        'vegetables': ['vegetable', 'salad', 'greens'],
+        'vegetables': ['vegetable', 'salad', 'lettuce', 'greens'],
         'tofu': ['tofu'],
       };
       
@@ -717,11 +709,10 @@ async function analyze() {
   }
 }
 
-// ── Render results ─────────────────────────────────────────
+// ── Render results ──────────────────────────────────────
 function renderResults(items, total) {
   const validItems = items.filter(it => it.valid);
 
-  // Cards
   let html = `<div class="results-grid">`;
   items.forEach(it => {
     const confColor = it.conf >= 80 ? '#22c55e' : it.conf >= 50 ? '#FA855A' : '#C93638';
@@ -743,7 +734,6 @@ function renderResults(items, total) {
   });
   html += `</div>`;
 
-  // Bill
   html += `<div class="bill" role="region" aria-label="Invoice summary">
     <div class="bill-title">🧾 Hóa đơn chi tiết</div>`;
   validItems.forEach(it => {
