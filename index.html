@@ -753,6 +753,18 @@ function renderResults(items, total) {
   </div></div>`;
 
   resultsArea.innerHTML = html;
+  async function loadModel() {
+  try {
+    console.log('Loading model from ./model.json');
+    model = await tf.loadLayersModel('./model.json');
+    // ... rest of code
+  } catch(e) {
+    console.error('Full error:', e);
+    console.error('Error message:', e.message);
+    console.error('Error stack:', e.stack);
+    // ... error handling
+  }
+}
 }
 </script>
 </body>
