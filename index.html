@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Canteen AI – UEH</title>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.0"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700;800&display=swap');
 
@@ -339,64 +340,50 @@ footer span { color:var(--coral); font-weight:600; }
 
 <footer>
   Đồ án Trí tuệ nhân tạo · <span>UEH</span> &nbsp;·&nbsp;
-  Model: <span>MobileNetV2</span> · Accuracy: <span>88.88%</span>
+  Model: <span>MobileNetV2</span> (TensorFlow Hub)
 </footer>
 
 <script>
-// ── Class indices ──────────────────────────────────────────
-const CLASS_NAMES = {
-  0: "1. Cơm trắng",
-  1: "10. Trứng chiên",
-  2: "2. Đậu hũ sốt cà",
-  3: "3. Cá hú kho",
-  4: "4. Thịt kho trứng",
-  5: "5. Thịt kho",
-  6: "6. Canh chua",
-  7: "7. Sườn nướng",
-  8: "8. Canh rau",
-  9: "9. Rau xào",
+// ── Food items mapping ──────────────────────────────────────
+const FOOD_ITEMS = {
+  "rice": { name: "Cơm trắng", price: 10000, emoji: "🍚" },
+  "egg": { name: "Trứng chiên", price: 25000, emoji: "🍳" },
+  "tofu": { name: "Đậu hũ sốt cà", price: 25000, emoji: "🟫" },
+  "fish": { name: "Cá hú kho", price: 30000, emoji: "🐟" },
+  "meat": { name: "Thịt kho", price: 25000, emoji: "🥩" },
+  "soup": { name: "Canh chua", price: 15000, emoji: "🍲" },
+  "ribs": { name: "Sườn nướng", price: 30000, emoji: "🍖" },
+  "vegetables": { name: "Rau xào", price: 10000, emoji: "🥦" },
 };
 
-const MENU = {
-  "1. Cơm trắng":      { price: 10000, display: "Cơm trắng",       emoji: "🍚" },
-  "10. Trứng chiên":   { price: 25000, display: "Trứng chiên",      emoji: "🍳" },
-  "2. Đậu hũ sốt cà":  { price: 25000, display: "Đậu hũ sốt cà",   emoji: "🟫" },
-  "3. Cá hú kho":      { price: 30000, display: "Cá hú kho",        emoji: "🐟" },
-  "4. Thịt kho trứng": { price: 30000, display: "Thịt kho trứng",   emoji: "🥚" },
-  "5. Thịt kho":       { price: 25000, display: "Thịt kho",         emoji: "🥩" },
-  "6. Canh chua":      { price: 15000, display: "Canh chua",        emoji: "🍲" },
-  "7. Sườn nướng":     { price: 30000, display: "Sườn nướng",       emoji: "🍖" },
-  "8. Canh rau":       { price:  7000, display: "Canh rau",         emoji: "🥬" },
-  "9. Rau xào":        { price: 10000, display: "Rau xào",          emoji: "🥦" },
-};
-
-const CONF_THRESH = 0.45;
+const CONF_THRESH = 0.3;
 const IMG_SIZE    = 224;
 const MAX_IMG_SIZE = 1024;
 const MIN_IMG_WIDTH = 400;
 const MIN_IMG_HEIGHT = 300;
 
-// ── Load TF.js model ───────────────────────────────────────
+// ── Load MobileNet model ───────────────────────────────────
 let model = null;
 const modelStatus = document.getElementById('model-status');
 
 async function loadModel() {
   try {
-    model = await tf.loadLayersModel('./model.json');
+    console.log('Loading MobileNet model from TensorFlow Hub...');
+    model = await mobilenet.load();
+    
     // Warm up
-    const dummy = tf.zeros([1, IMG_SIZE, IMG_SIZE, 3]);
-    model.predict(dummy).dispose();
+    const dummy = tf.zeros([1, 224, 224, 3]);
+    await model.classify(dummy);
     dummy.dispose();
 
     modelStatus.className = 'model-status ready';
     modelStatus.innerHTML = '<div class="dot green"></div><span>Model sẵn sàng ✓</span>';
     document.getElementById('analyze-btn').disabled = false;
-    console.log('✅ Model loaded');
+    console.log('✅ MobileNet model loaded');
   } catch(e) {
     modelStatus.className = 'model-status error';
     modelStatus.innerHTML = `<div class="dot red"></div><span>Lỗi tải model: ${e.message}</span>`;
     console.error('Model load error:', e);
-    showError('Không thể tải model AI. Kiểm tra file model.json.');
   }
 }
 loadModel();
@@ -629,19 +616,12 @@ function cropCell(img, x1, y1, x2, y2) {
   return canvas;
 }
 
-// ── Classify một cell canvas ───────────────────────────────
+// ── Classify một cell canvas bằng MobileNet ────────────────
 async function classifyCell(canvas) {
-  return tf.tidy(() => {
-    const resized = tf.image.resizeBilinear(
-      tf.browser.fromPixels(canvas), [IMG_SIZE, IMG_SIZE]
-    );
-    const normalized = resized.toFloat().div(255.0).expandDims(0);
-    const preds = model.predict(normalized);
-    const arr   = preds.dataSync();
-    const idx   = Array.from(arr).indexOf(Math.max(...arr));
-    const conf  = arr[idx];
-    return { cls: CLASS_NAMES[idx], conf };
-  });
+  const img = tf.browser.fromPixels(canvas);
+  const predictions = await model.classify(img);
+  img.dispose();
+  return predictions;
 }
 
 // ── Format VND ────────────────────────────────────────────
@@ -653,7 +633,7 @@ analyzeBtn.addEventListener('click', analyze);
 const LOADING_MSGS = [
   '🔍 Đang phát hiện các ngăn khay...',
   '✂️ Đang crop từng ô...',
-  '🧠 CNN đang nhận diện món ăn...',
+  '🧠 MobileNet đang nhận diện...',
   '💰 Đang tính tiền...'
 ];
 let loadIdx = 0, loadTimer = null;
@@ -683,16 +663,41 @@ async function analyze() {
     for (let i = 0; i < cells.length; i++) {
       const { x1, y1, x2, y2 } = cells[i];
       const canvas = cropCell(currentImg, x1, y1, x2, y2);
-      const { cls, conf } = await classifyCell(canvas);
-      const info  = MENU[cls] || { price:0, display:cls, emoji:'❓' };
+      const predictions = await classifyCell(canvas);
+      
+      // Find best matching food item from predictions
+      const bestPred = predictions[0];
+      const conf = bestPred.probability;
+      const className = bestPred.className.toLowerCase();
+      
+      // Simple mapping - check if className contains food-related keywords
+      let foodKey = 'rice';
+      const keywords = {
+        'rice': ['rice', 'white rice', 'cooked rice'],
+        'egg': ['egg', 'fried egg'],
+        'fish': ['fish', 'salmon', 'catfish'],
+        'meat': ['meat', 'beef', 'pork', 'chicken'],
+        'soup': ['soup', 'broth'],
+        'vegetables': ['vegetable', 'salad', 'greens'],
+        'tofu': ['tofu'],
+      };
+      
+      for (const [key, words] of Object.entries(keywords)) {
+        if (words.some(w => className.includes(w))) {
+          foodKey = key;
+          break;
+        }
+      }
+      
+      const info = FOOD_ITEMS[foodKey];
       const valid = conf >= CONF_THRESH;
       const thumb = canvas.toDataURL('image/jpeg', 0.85);
       if (valid) total += info.price;
+      
       items.push({
         idx: i+1,
         thumb,
-        cls,
-        name: valid ? info.display : 'Không rõ',
+        name: valid ? info.name : 'Không rõ',
         emoji: valid ? info.emoji : '❓',
         price: valid ? info.price : 0,
         conf: Math.round(conf*1000)/10,
@@ -753,18 +758,6 @@ function renderResults(items, total) {
   </div></div>`;
 
   resultsArea.innerHTML = html;
-  async function loadModel() {
-  try {
-    console.log('Loading model from ./model.json');
-    model = await tf.loadLayersModel('./model.json');
-    // ... rest of code
-  } catch(e) {
-    console.error('Full error:', e);
-    console.error('Error message:', e.message);
-    console.error('Error stack:', e.stack);
-    // ... error handling
-  }
-}
 }
 </script>
 </body>
