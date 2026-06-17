@@ -347,27 +347,27 @@ const modelStatus = document.getElementById('model-status');
 
 async function loadModel() {
   try {
-    // Fetch model.json thủ công để patch config trước khi load
     const resp = await fetch('./model.json');
     const modelTopology = await resp.json();
 
-    // Patch InputLayer: thêm batch_input_shape từ batch_shape (TF mới đặt tên khác TF.js cũ)
-    function patchLayer(layer) {
-      if (layer.class_name === 'InputLayer' && layer.config) {
-        const cfg = layer.config;
-        if (!cfg.batch_input_shape) {
-          cfg.batch_input_shape = cfg.batch_shape || [null, IMG_SIZE, IMG_SIZE, 3];
+    // Patch ĐỆ QUY TOÀN BỘ cây JSON — tìm mọi InputLayer ở bất kỳ độ sâu nào,
+    // không phụ thuộc đường dẫn cụ thể (model_config/config/layers...)
+    function deepPatch(node) {
+      if (Array.isArray(node)) {
+        node.forEach(deepPatch);
+        return;
+      }
+      if (node && typeof node === 'object') {
+        if (node.class_name === 'InputLayer' && node.config) {
+          const cfg = node.config;
+          if (!cfg.batch_input_shape) {
+            cfg.batch_input_shape = cfg.batch_shape || [null, IMG_SIZE, IMG_SIZE, 3];
+          }
         }
-      }
-      if (layer.config && Array.isArray(layer.config.layers)) {
-        layer.config.layers.forEach(patchLayer);
+        Object.values(node).forEach(deepPatch);
       }
     }
-
-    const mc = modelTopology.modelTopology && modelTopology.modelTopology.model_config;
-    if (mc && mc.config && Array.isArray(mc.config.layers)) {
-      mc.config.layers.forEach(patchLayer);
-    }
+    deepPatch(modelTopology);
 
     const patchedBlob = new Blob([JSON.stringify(modelTopology)], { type: 'application/json' });
     const patchedUrl   = URL.createObjectURL(patchedBlob);
@@ -381,11 +381,11 @@ async function loadModel() {
 
     modelStatus.className = 'model-status ready';
     modelStatus.innerHTML = '<div class="dot green"></div><span>Model sẵn sàng ✓</span>';
-    console.log('Model loaded (patched, CNN tự train, 10 classes)');
+    console.log('Model loaded (deep-patched, CNN tự train, 10 classes)');
   } catch(e) {
     modelStatus.className = 'model-status error';
     modelStatus.innerHTML = '<div class="dot red"></div><span>Lỗi tải model: ' + e.message + '</span>';
-    console.error(e);
+    console.error('Model load error full detail:', e);
   }
 }
 loadModel();
