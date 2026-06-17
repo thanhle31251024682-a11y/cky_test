@@ -5,11 +5,9 @@
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Canteen AI – UEH</title>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.0"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700;800&display=swap');
 
-/* ── Tone màu Honeydew · Soft Peach · Coral Glow · Tomato Jam · Sky Blue ── */
 :root {
   --honeydew:   #F6FFEA;
   --soft-peach: #FFDE96;
@@ -34,7 +32,6 @@ body {
   min-height: 100vh;
 }
 
-/* ── Header ── */
 header {
   background: linear-gradient(135deg, var(--tomato) 0%, var(--coral) 60%, var(--soft-peach) 100%);
   padding: 18px 28px;
@@ -62,7 +59,6 @@ header {
   backdrop-filter: blur(4px);
 }
 
-/* ── Layout ── */
 main {
   max-width: 1180px;
   margin: 0 auto;
@@ -73,7 +69,6 @@ main {
 }
 @media(max-width:820px){ main{ grid-template-columns:1fr; } }
 
-/* ── Panel ── */
 .panel {
   background: var(--card);
   border: 1.5px solid var(--border);
@@ -92,7 +87,6 @@ main {
 }
 .panel-body { padding: 20px; }
 
-/* ── Upload zone ── */
 .upload-zone {
   border: 2px dashed var(--coral);
   border-radius: var(--radius);
@@ -118,7 +112,6 @@ main {
 .upload-sub { font-size:12px; color:var(--muted); margin-top:4px; }
 #file-input { display:none; }
 
-/* ── Buttons ── */
 .btn-row { display:flex; gap:10px; margin-top:14px; }
 .btn {
   flex:1; padding:11px; border-radius:10px;
@@ -140,7 +133,6 @@ main {
 }
 .btn-secondary:hover { background:var(--soft-peach); }
 
-/* ── Loading ── */
 .loading {
   display:none; align-items:center; gap:10px;
   font-size:13px; color:var(--muted); padding:12px 0;
@@ -155,31 +147,20 @@ main {
 }
 @keyframes spin { to{transform:rotate(360deg)} }
 
-/* ── Model status ── */
 .model-status {
   display:flex; align-items:center; gap:8px;
   font-size:12px; padding:8px 12px; border-radius:8px;
   margin-bottom:14px; font-weight:500;
 }
-.model-status.loading-model {
-  background:#fff8e8; color:#b07a00;
-  border:1px solid #ffd97a;
-}
-.model-status.ready {
-  background:#efffee; color:#1a7a3a;
-  border:1px solid #a0e8b0;
-}
-.model-status.error {
-  background:#fff0f0; color:var(--tomato);
-  border:1px solid #ffb8b8;
-}
+.model-status.loading-model { background:#fff8e8; color:#b07a00; border:1px solid #ffd97a; }
+.model-status.ready { background:#efffee; color:#1a7a3a; border:1px solid #a0e8b0; }
+.model-status.error { background:#fff0f0; color:var(--tomato); border:1px solid #ffb8b8; }
 .dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
 .dot.pulse { background:var(--soft-peach); animation:pulse 1s infinite; }
 .dot.green { background:#22c55e; }
 .dot.red   { background:var(--tomato); }
 @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
 
-/* ── Results grid ── */
 .results-grid {
   display:grid; grid-template-columns:repeat(3,1fr); gap:12px;
 }
@@ -209,7 +190,6 @@ main {
 .conf-fill { height:100%; border-radius:2px; transition:width .6s ease; }
 .conf-text { font-size:10px; color:var(--muted); margin-top:2px; }
 
-/* ── Bill ── */
 .bill {
   background: linear-gradient(135deg, #fff8f0 0%, var(--honeydew) 100%);
   border:1.5px solid var(--border);
@@ -236,29 +216,15 @@ main {
 .bill-total-label { font-size:14px; font-weight:700; color:var(--text); }
 .bill-total-amount { font-size:24px; font-weight:800; color:var(--tomato); }
 
-/* ── Empty ── */
 .empty { text-align:center; padding:48px 20px; color:var(--muted); }
 .empty-icon { font-size:48px; margin-bottom:12px; }
 .empty-text { font-size:14px; font-weight:500; }
 
-/* ── Error ── */
-.error-box {
-  background:#fff0f0;
-  border:1.5px solid #ffb8b8; border-radius:10px;
-  padding:12px 16px; font-size:13px;
-  color:var(--tomato); margin-top:10px; font-weight:500;
-}
+.error-box { background:#fff0f0; border:1.5px solid #ffb8b8; border-radius:10px; padding:12px 16px; font-size:13px; color:var(--tomato); margin-top:10px; font-weight:500; }
 .error-box.hidden { display:none; }
-
-/* ── Preview Image ── */
 .preview.hidden { display:none; }
 
-/* ── Footer ── */
-footer {
-  text-align:center; padding:20px;
-  font-size:12px; color:var(--muted);
-  border-top:1.5px solid var(--border);
-}
+footer { text-align:center; padding:20px; font-size:12px; color:var(--muted); border-top:1.5px solid var(--border); }
 footer span { color:var(--coral); font-weight:600; }
 </style>
 </head>
@@ -276,58 +242,51 @@ footer span { color:var(--coral); font-weight:600; }
 </header>
 
 <main>
-  <!-- ── LEFT: Upload ── -->
   <div>
     <div class="panel">
       <div class="panel-head">🍽️ 1. Tải ảnh khay cơm</div>
       <div class="panel-body">
 
-        <div class="model-status loading-model" id="model-status" role="status" aria-live="polite" aria-label="Model loading status">
+        <div class="model-status loading-model" id="model-status">
           <div class="dot pulse"></div>
           <span>Đang tải model AI...</span>
         </div>
 
-        <label for="file-input" aria-label="Upload image area">
-          <div class="upload-zone" id="drop-zone" role="button" tabindex="0" aria-pressed="false">
+        <label for="file-input">
+          <div class="upload-zone" id="drop-zone">
             <div class="upload-placeholder" id="placeholder">
               <div class="upload-icon">📸</div>
               <div class="upload-title">Chọn hoặc kéo thả ảnh</div>
-              <div class="upload-sub">Chụp thẳng, đủ sáng, thấy rõ khay</div>
+              <div class="upload-sub">Chụp thẳng góc trên, đủ sáng, thấy rõ 5 ô khay</div>
             </div>
             <img class="preview hidden" id="preview" alt="preview"/>
           </div>
         </label>
-        <input type="file" id="file-input" accept="image/*" aria-label="Select image file"/>
+        <input type="file" id="file-input" accept="image/*"/>
 
         <div class="btn-row">
-          <button class="btn btn-secondary" onclick="document.getElementById('file-input').click()" aria-label="Choose image from device">
-            📁 Chọn ảnh
-          </button>
-          <button class="btn btn-secondary" onclick="openCamera()" aria-label="Take photo with camera">
-            📷 Camera
-          </button>
+          <button class="btn btn-secondary" onclick="document.getElementById('file-input').click()">📁 Chọn ảnh</button>
+          <button class="btn btn-secondary" onclick="openCamera()">📷 Camera</button>
         </div>
 
-        <div class="loading" id="loading" role="status" aria-live="polite" aria-label="Processing status">
+        <div class="loading" id="loading">
           <div class="spinner"></div>
           <span id="loading-text">Đang xử lý...</span>
         </div>
-        <div class="error-box hidden" id="error-box" role="alert" aria-live="assertive"></div>
+        <div class="error-box hidden" id="error-box"></div>
 
-        <button class="btn btn-primary" id="analyze-btn"
-                aria-label="Analyze image and calculate total price" disabled>
+        <button class="btn btn-primary" id="analyze-btn" style="margin-top:14px;width:100%" disabled>
           🔍 Phân tích & tính tiền
         </button>
       </div>
     </div>
   </div>
 
-  <!-- ── RIGHT: Results ── -->
   <div>
     <div class="panel">
       <div class="panel-head">🔬 2. Kết quả phân tích từng ngăn</div>
       <div class="panel-body">
-        <div id="results-area" role="region" aria-label="Analysis results">
+        <div id="results-area">
           <div class="empty">
             <div class="empty-icon">🍽️</div>
             <div class="empty-text">Upload ảnh khay cơm để bắt đầu</div>
@@ -340,58 +299,70 @@ footer span { color:var(--coral); font-weight:600; }
 
 <footer>
   Đồ án Trí tuệ nhân tạo · <span>UEH</span> &nbsp;·&nbsp;
-  Model: <span>MobileNetV2</span> (TensorFlow Hub) · Không cần model.json ✓
+  Model: <span>MobileNetV2 (tự train)</span> · Accuracy: <span>88.88%</span> ·
+  5 ô cố định theo khay inox chuẩn
 </footer>
 
 <script>
-// ── Food items mapping ──────────────────────────────────────
-const FOOD_ITEMS = {
-  "rice": { name: "Cơm trắng", price: 10000, emoji: "🍚" },
-  "egg": { name: "Trứng chiên", price: 25000, emoji: "🍳" },
-  "tofu": { name: "Đậu hũ sốt cà", price: 25000, emoji: "🟫" },
-  "fish": { name: "Cá hú kho", price: 30000, emoji: "🐟" },
-  "meat": { name: "Thịt kho", price: 25000, emoji: "🥩" },
-  "soup": { name: "Canh chua", price: 15000, emoji: "🍲" },
-  "ribs": { name: "Sườn nướng", price: 30000, emoji: "🍖" },
-  "vegetables": { name: "Rau xào", price: 10000, emoji: "🥦" },
+const CLASS_NAMES = {
+  0: "1. Cơm trắng",
+  1: "10. Trứng chiên",
+  2: "2. Đậu hũ sốt cà",
+  3: "3. Cá hú kho",
+  4: "4. Thịt kho trứng",
+  5: "5. Thịt kho",
+  6: "6. Canh chua",
+  7: "7. Sườn nướng",
+  8: "8. Canh rau",
+  9: "9. Rau xào",
 };
 
-const CONF_THRESH = 0.3;
-const IMG_SIZE    = 224;
-const MAX_IMG_SIZE = 1024;
-const MIN_IMG_WIDTH = 400;
-const MIN_IMG_HEIGHT = 300;
+const MENU = {
+  "1. Cơm trắng":      { price: 10000, display: "Cơm trắng",       emoji: "🍚" },
+  "10. Trứng chiên":   { price: 25000, display: "Trứng chiên",      emoji: "🍳" },
+  "2. Đậu hũ sốt cà":  { price: 25000, display: "Đậu hũ sốt cà",   emoji: "🟫" },
+  "3. Cá hú kho":      { price: 30000, display: "Cá hú kho",        emoji: "🐟" },
+  "4. Thịt kho trứng": { price: 30000, display: "Thịt kho trứng",   emoji: "🥚" },
+  "5. Thịt kho":       { price: 25000, display: "Thịt kho",         emoji: "🥩" },
+  "6. Canh chua":      { price: 15000, display: "Canh chua",        emoji: "🍲" },
+  "7. Sườn nướng":     { price: 30000, display: "Sườn nướng",       emoji: "🍖" },
+  "8. Canh rau":       { price:  7000, display: "Canh rau",         emoji: "🥬" },
+  "9. Rau xào":        { price: 10000, display: "Rau xào",          emoji: "🥦" },
+};
 
-// ── Load MobileNet model from TensorFlow Hub ───────────────
+const CONF_THRESH = 0.40;
+const IMG_SIZE    = 224;
+
+// 5 ô CỐ ĐỊNH theo khay inox chuẩn (tỉ lệ 0–1 trên ảnh)
+const FIXED_CELLS = [
+  { label: "Ô 1",  box: [0.010, 0.010, 0.595, 0.415] },
+  { label: "Ô 2",  box: [0.615, 0.010, 0.990, 0.275] },
+  { label: "Ô 3",  box: [0.615, 0.295, 0.990, 0.555] },
+  { label: "Ô 4",  box: [0.010, 0.435, 0.595, 0.990] },
+  { label: "Ô 5",  box: [0.615, 0.575, 0.990, 0.840] },
+];
+
 let model = null;
 const modelStatus = document.getElementById('model-status');
 
 async function loadModel() {
   try {
-    console.log('Loading MobileNet v2 from TensorFlow Hub...');
-    model = await mobilenet.load({ version: 2, alpha: 1.0 });
-    
-    // Warm up the model
-    const dummy = tf.zeros([1, 224, 224, 3]);
-    await model.classify(dummy);
+    model = await tf.loadLayersModel('./model.json');
+    const dummy = tf.zeros([1, IMG_SIZE, IMG_SIZE, 3]);
+    model.predict(dummy).dispose();
     dummy.dispose();
-    tf.dispose();
 
     modelStatus.className = 'model-status ready';
     modelStatus.innerHTML = '<div class="dot green"></div><span>Model sẵn sàng ✓</span>';
-    document.getElementById('analyze-btn').disabled = false;
-    console.log('✅ MobileNet model loaded successfully from TensorFlow Hub');
+    console.log('Model loaded (CNN tự train, 10 classes)');
   } catch(e) {
     modelStatus.className = 'model-status error';
-    modelStatus.innerHTML = `<div class="dot red"></div><span>Lỗi tải model: ${e.message}</span>`;
-    console.error('❌ Model load error:', e);
+    modelStatus.innerHTML = '<div class="dot red"></div><span>Lỗi tải model: ' + e.message + '</span>';
+    console.error(e);
   }
 }
-
-// Load model when page loads
 loadModel();
 
-// ── UI elements ────────────────────────────────────────────
 const fileInput   = document.getElementById('file-input');
 const dropZone    = document.getElementById('drop-zone');
 const preview     = document.getElementById('preview');
@@ -403,81 +374,30 @@ const errorBox    = document.getElementById('error-box');
 const resultsArea = document.getElementById('results-area');
 
 let currentImg = null;
-let isProcessing = false;
 
-fileInput.addEventListener('change', e => {
+fileInput.addEventListener('change', function(e) {
   if (e.target.files[0]) loadPreview(e.target.files[0]);
 });
-
-dropZone.addEventListener('dragover', e => {
-  e.preventDefault();
-  dropZone.style.borderColor = 'var(--tomato)';
-});
-
-dropZone.addEventListener('dragleave', () => {
-  dropZone.style.borderColor = '';
-});
-
-dropZone.addEventListener('drop', e => {
-  e.preventDefault();
-  dropZone.style.borderColor = '';
+dropZone.addEventListener('dragover', function(e) { e.preventDefault(); dropZone.style.borderColor='var(--tomato)'; });
+dropZone.addEventListener('dragleave', function() { dropZone.style.borderColor=''; });
+dropZone.addEventListener('drop', function(e) {
+  e.preventDefault(); dropZone.style.borderColor='';
   const f = e.dataTransfer.files[0];
   if (f && f.type.startsWith('image/')) loadPreview(f);
 });
 
-dropZone.addEventListener('keydown', e => {
-  if (e.key === 'Enter' || e.key === ' ') {
-    e.preventDefault();
-    fileInput.click();
-  }
-});
-
-function validateImage(img) {
-  if (img.naturalWidth < MIN_IMG_WIDTH || img.naturalHeight < MIN_IMG_HEIGHT) {
-    throw new Error(`Ảnh quá nhỏ (tối thiểu ${MIN_IMG_WIDTH}x${MIN_IMG_HEIGHT}px). Chụp lại với chất lượng cao hơn.`);
-  }
-}
-
-function resizeImage(img) {
-  const w = img.naturalWidth;
-  const h = img.naturalHeight;
-  if (w <= MAX_IMG_SIZE && h <= MAX_IMG_SIZE) return img;
-
-  const scale = Math.min(MAX_IMG_SIZE / w, MAX_IMG_SIZE / h);
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.round(w * scale);
-  canvas.height = Math.round(h * scale);
-  canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-
-  const newImg = new Image();
-  newImg.src = canvas.toDataURL('image/jpeg', 0.9);
-  return newImg;
-}
-
 function loadPreview(file) {
   const url = URL.createObjectURL(file);
   const img  = new Image();
-  img.onload = () => {
-    try {
-      validateImage(img);
-      currentImg = resizeImage(img);
-      preview.src = currentImg.src;
-      placeholder.classList.add('hidden');
-      preview.classList.remove('hidden');
-      dropZone.classList.add('has-image');
-      analyzeBtn.disabled = !model;
-      errorBox.classList.add('hidden');
-      resultsArea.innerHTML = `<div class="empty"><div class="empty-icon">✅</div><div class="empty-text">Ảnh đã tải · Nhấn Phân tích để bắt đầu</div></div>`;
-    } catch (e) {
-      showError(e.message);
-      currentImg = null;
-      analyzeBtn.disabled = true;
-    }
-  };
-  img.onerror = () => {
-    showError('Lỗi tải ảnh. Vui lòng chọn file ảnh hợp lệ.');
-    currentImg = null;
-    analyzeBtn.disabled = true;
+  img.onload = function() {
+    currentImg = img;
+    preview.src = url;
+    placeholder.classList.add('hidden');
+    preview.classList.remove('hidden');
+    dropZone.classList.add('has-image');
+    analyzeBtn.disabled = !model;
+    errorBox.classList.add('hidden');
+    resultsArea.innerHTML = '<div class="empty"><div class="empty-icon">✅</div><div class="empty-text">Ảnh đã tải · Nhấn Phân tích để bắt đầu</div></div>';
   };
   img.src = url;
 }
@@ -487,122 +407,12 @@ function openCamera() {
   fileInput.click();
 }
 
-function showError(msg) {
-  errorBox.textContent = msg;
-  errorBox.classList.remove('hidden');
-}
+function cropFixedCell(img, box) {
+  const W = img.naturalWidth, H = img.naturalHeight;
+  const bx1 = box[0], by1 = box[1], bx2 = box[2], by2 = box[3];
+  const x1 = Math.round(bx1*W), y1 = Math.round(by1*H);
+  const x2 = Math.round(bx2*W), y2 = Math.round(by2*H);
 
-// ── Cell detection ─────────────────────────────────────────
-function detectCells(img) {
-  const W = img.naturalWidth  || img.width;
-  const H = img.naturalHeight || img.height;
-
-  const canvas = document.createElement('canvas');
-  canvas.width = W; 
-  canvas.height = H;
-  const ctx = canvas.getContext('2d');
-  ctx.drawImage(img, 0, 0);
-  const data = ctx.getImageData(0, 0, W, H).data;
-
-  const gray = new Uint8Array(W * H);
-  for (let i = 0; i < W * H; i++) {
-    gray[i] = Math.round(0.299*data[i*4] + 0.587*data[i*4+1] + 0.114*data[i*4+2]);
-  }
-
-  const hProj = new Float32Array(H);
-  const vProj = new Float32Array(W);
-  const THRESH = 100;
-
-  const hKW = Math.floor(W / 5);
-  for (let y = 0; y < H; y++) {
-    let sum = 0, count = 0;
-    for (let x = 0; x + hKW < W; x++) {
-      let allBright = true;
-      for (let k = 0; k < hKW; k++) {
-        if (gray[y * W + x + k] < THRESH) { allBright = false; break; }
-      }
-      if (allBright) sum++;
-      count++;
-    }
-    hProj[y] = count > 0 ? sum / count : 0;
-  }
-
-  const vKH = Math.floor(H / 5);
-  for (let x = 0; x < W; x++) {
-    let sum = 0, count = 0;
-    for (let y = 0; y + vKH < H; y++) {
-      let allBright = true;
-      for (let k = 0; k < vKH; k++) {
-        if (gray[(y+k) * W + x] < THRESH) { allBright = false; break; }
-      }
-      if (allBright) sum++;
-      count++;
-    }
-    vProj[x] = count > 0 ? sum / count : 0;
-  }
-
-  const hMax = Math.max(...hProj);
-  const vMax = Math.max(...vProj);
-
-  const hPos = [], vPos = [];
-  for (let y = 0; y < H; y++) if (hProj[y] > hMax * 0.4) hPos.push(y);
-  for (let x = 0; x < W; x++) if (vProj[x] > vMax * 0.4) vPos.push(x);
-
-  function cluster(arr, gap) {
-    if (!arr.length) return [];
-    const result = [], cur = [arr[0]];
-    for (let i = 1; i < arr.length; i++) {
-      if (arr[i] - cur[cur.length-1] < gap) cur.push(arr[i]);
-      else {
-        result.push(Math.round(cur.reduce((a,b)=>a+b)/cur.length));
-        cur.length=0;
-        cur.push(arr[i]);
-      }
-    }
-    result.push(Math.round(cur.reduce((a,b)=>a+b)/cur.length));
-    return result;
-  }
-
-  function filterClose(arr, minRatio, total) {
-    const f = [arr[0]];
-    for (let i = 1; i < arr.length; i++) {
-      if (arr[i] - f[f.length-1] > total * minRatio) f.push(arr[i]);
-    }
-    if (f[f.length-1] !== arr[arr.length-1]) f.push(arr[arr.length-1]);
-    return f;
-  }
-
-  const hDiv = cluster(hPos, H/20);
-  const vDiv = cluster(vPos, W/15);
-
-  let hAll = [0, ...hDiv.filter(h => h > H*0.05 && h < H*0.95), H];
-  let vAll = [0, ...vDiv.filter(v => v > W*0.05 && v < W*0.95), W];
-  hAll = [...new Set(hAll)].sort((a,b)=>a-b);
-  vAll = [...new Set(vAll)].sort((a,b)=>a-b);
-
-  const hF = filterClose(hAll, 0.07, H);
-  const vF = filterClose(vAll, 0.08, W);
-
-  const PAD = Math.round(Math.min(W, H) * 0.015);
-  const cells = [];
-  for (let i = 0; i < hF.length-1; i++) {
-    for (let j = 0; j < vF.length-1; j++) {
-      const y1 = hF[i]+PAD, y2 = hF[i+1]-PAD;
-      const x1 = vF[j]+PAD, x2 = vF[j+1]-PAD;
-      const ratio = (x2-x1)*(y2-y1)/(W*H);
-      if ((x2-x1)>40 && (y2-y1)>40 && ratio>=0.04) {
-        cells.push({x1,y1,x2,y2});
-      }
-    }
-  }
-
-  ctx.clearRect(0, 0, W, H);
-
-  return { cells, W, H };
-}
-
-// ── Crop cell ───────────────────────────────────────────
-function cropCell(img, x1, y1, x2, y2) {
   const canvas = document.createElement('canvas');
   canvas.width  = x2 - x1;
   canvas.height = y2 - y1;
@@ -610,142 +420,117 @@ function cropCell(img, x1, y1, x2, y2) {
   return canvas;
 }
 
-// ── Classify with MobileNet ────────────────────────────────
 async function classifyCell(canvas) {
-  const img = tf.browser.fromPixels(canvas);
-  const predictions = await model.classify(img);
-  img.dispose();
-  return predictions;
+  return tf.tidy(function() {
+    const resized = tf.image.resizeBilinear(
+      tf.browser.fromPixels(canvas), [IMG_SIZE, IMG_SIZE]
+    );
+    const normalized = resized.toFloat().div(255.0).expandDims(0);
+    const preds = model.predict(normalized);
+    const arr   = preds.dataSync();
+    let maxVal = arr[0], idx = 0;
+    for (let i = 1; i < arr.length; i++) {
+      if (arr[i] > maxVal) { maxVal = arr[i]; idx = i; }
+    }
+    return { cls: CLASS_NAMES[idx], conf: maxVal };
+  });
 }
 
-// ── Format VND ──────────────────────────────────────────
 function fmtVND(n) { return n.toLocaleString('vi-VN') + 'đ'; }
 
-// ── Analyze button ──────────────────────────────────────
 analyzeBtn.addEventListener('click', analyze);
 
 const LOADING_MSGS = [
-  '🔍 Đang phát hiện các ngăn khay...',
-  '✂️ Đang crop từng ô...',
-  '🧠 MobileNet đang nhận diện...',
+  '✂️ Đang cắt 5 ô khay...',
+  '🧠 CNN đang nhận diện món ăn...',
   '💰 Đang tính tiền...'
 ];
 let loadIdx = 0, loadTimer = null;
 
 async function analyze() {
-  if (!currentImg || !model || isProcessing) return;
-
-  isProcessing = true;
+  if (!currentImg || !model) return;
   analyzeBtn.disabled = true;
   errorBox.classList.add('hidden');
   loadIdx = 0;
   loadingTxt.textContent = LOADING_MSGS[0];
   loadingEl.classList.add('show');
-  loadTimer = setInterval(() => {
+  loadTimer = setInterval(function() {
     loadIdx = (loadIdx+1) % LOADING_MSGS.length;
     loadingTxt.textContent = LOADING_MSGS[loadIdx];
   }, 900);
-  resultsArea.innerHTML = `<div class="empty"><div class="spinner" style="margin:0 auto;width:28px;height:28px;border:2.5px solid var(--border);border-top-color:var(--coral)"></div></div>`;
+  resultsArea.innerHTML = '<div class="empty"><div class="spinner" style="margin:0 auto;width:28px;height:28px"></div></div>';
 
   try {
-    const { cells, W, H } = detectCells(currentImg);
-    if (!cells.length) throw new Error('Không phát hiện được ô khay. Thử chụp thẳng hơn và đủ sáng.');
-
     const items = [];
     let total = 0;
 
-    for (let i = 0; i < cells.length; i++) {
-      const { x1, y1, x2, y2 } = cells[i];
-      const canvas = cropCell(currentImg, x1, y1, x2, y2);
-      const predictions = await classifyCell(canvas);
-      
-      const bestPred = predictions[0];
-      const conf = bestPred.probability;
-      const className = bestPred.className.toLowerCase();
-      
-      let foodKey = 'rice';
-      const keywords = {
-        'rice': ['rice', 'cooked rice'],
-        'egg': ['egg', 'fried egg'],
-        'fish': ['fish', 'salmon'],
-        'meat': ['meat', 'beef', 'pork', 'chicken'],
-        'soup': ['soup', 'broth'],
-        'vegetables': ['vegetable', 'salad', 'lettuce', 'greens'],
-        'tofu': ['tofu'],
-      };
-      
-      for (const [key, words] of Object.entries(keywords)) {
-        if (words.some(w => className.includes(w))) {
-          foodKey = key;
-          break;
-        }
-      }
-      
-      const info = FOOD_ITEMS[foodKey];
+    for (let i = 0; i < FIXED_CELLS.length; i++) {
+      const label = FIXED_CELLS[i].label;
+      const box   = FIXED_CELLS[i].box;
+      const canvas = cropFixedCell(currentImg, box);
+      const result = await classifyCell(canvas);
+      const cls = result.cls, conf = result.conf;
+      const info  = MENU[cls] || { price:0, display:cls, emoji:'❓' };
       const valid = conf >= CONF_THRESH;
       const thumb = canvas.toDataURL('image/jpeg', 0.85);
       if (valid) total += info.price;
-      
       items.push({
-        idx: i+1,
-        thumb,
-        name: valid ? info.name : 'Không rõ',
+        idx: i+1, label: label, thumb: thumb, cls: cls,
+        name: valid ? info.display : 'Không rõ',
         emoji: valid ? info.emoji : '❓',
         price: valid ? info.price : 0,
         conf: Math.round(conf*1000)/10,
-        valid
+        valid: valid
       });
     }
 
     renderResults(items, total);
   } catch(e) {
-    showError(e.message);
-    resultsArea.innerHTML = `<div class="empty"><div class="empty-icon">❌</div><div class="empty-text">${e.message}</div></div>`;
+    errorBox.textContent = e.message;
+    errorBox.classList.remove('hidden');
+    resultsArea.innerHTML = '<div class="empty"><div class="empty-icon">❌</div><div class="empty-text">' + e.message + '</div></div>';
   } finally {
     clearInterval(loadTimer);
     loadingEl.classList.remove('show');
-    isProcessing = false;
     analyzeBtn.disabled = false;
   }
 }
 
-// ── Render results ──────────────────────────────────────
 function renderResults(items, total) {
-  const validItems = items.filter(it => it.valid);
+  const validItems = items.filter(function(it) { return it.valid; });
 
-  let html = `<div class="results-grid">`;
-  items.forEach(it => {
+  let html = '<div class="results-grid">';
+  items.forEach(function(it) {
     const confColor = it.conf >= 80 ? '#22c55e' : it.conf >= 50 ? '#FA855A' : '#C93638';
-    html += `
-    <div class="food-card ${it.valid?'':'unknown'}">
-      <img class="crop-img" src="${it.thumb}" alt="${it.name}"/>
-      <div class="crop-info">
-        <div class="crop-label">${it.emoji} Ngăn ${it.idx}</div>
-        <div class="crop-name">${it.name}</div>
-        ${it.valid ? `<div class="crop-price">${fmtVND(it.price)}</div>` : ''}
-        <div class="conf-wrap">
-          <div class="conf-bg">
-            <div class="conf-fill" style="width:${it.conf}%;background:${confColor}"></div>
-          </div>
-          <div class="conf-text">Độ tin cậy: ${it.conf}%</div>
-        </div>
-      </div>
-    </div>`;
+    html += ''
+    + '<div class="food-card ' + (it.valid ? '' : 'unknown') + '">'
+    +   '<img class="crop-img" src="' + it.thumb + '" alt="' + it.name + '"/>'
+    +   '<div class="crop-info">'
+    +     '<div class="crop-label">' + it.emoji + ' ' + it.label + '</div>'
+    +     '<div class="crop-name">' + it.name + '</div>'
+    +     (it.valid ? '<div class="crop-price">' + fmtVND(it.price) + '</div>' : '')
+    +     '<div class="conf-wrap">'
+    +       '<div class="conf-bg"><div class="conf-fill" style="width:' + it.conf + '%;background:' + confColor + '"></div></div>'
+    +       '<div class="conf-text">Độ tin cậy: ' + it.conf + '%</div>'
+    +     '</div>'
+    +   '</div>'
+    + '</div>';
   });
-  html += `</div>`;
+  html += '</div>';
 
-  html += `<div class="bill" role="region" aria-label="Invoice summary">
-    <div class="bill-title">🧾 Hóa đơn chi tiết</div>`;
-  validItems.forEach(it => {
-    html += `<div class="bill-row">
-      <span class="bill-name">${it.emoji} ${it.name}</span>
-      <span class="bill-price">${fmtVND(it.price)}</span>
-    </div>`;
+  html += '<div class="bill"><div class="bill-title">🧾 Hóa đơn chi tiết</div>';
+  validItems.forEach(function(it) {
+    html += ''
+    + '<div class="bill-row">'
+    +   '<span class="bill-name">' + it.emoji + ' ' + it.name + '</span>'
+    +   '<span class="bill-price">' + fmtVND(it.price) + '</span>'
+    + '</div>';
   });
-  html += `<div class="bill-total">
-    <span class="bill-total-label">Tổng cộng (${validItems.length} món)</span>
-    <span class="bill-total-amount">${fmtVND(total)}</span>
-  </div></div>`;
+  html += ''
+  + '<div class="bill-total">'
+  +   '<span class="bill-total-label">Tổng cộng (' + validItems.length + ' món)</span>'
+  +   '<span class="bill-total-amount">' + fmtVND(total) + '</span>'
+  + '</div></div>';
 
   resultsArea.innerHTML = html;
 }
