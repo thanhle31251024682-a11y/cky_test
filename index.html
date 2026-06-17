@@ -4,7 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Canteen AI – UEH</title>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.4.0/dist/tf.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700;800&display=swap');
 
@@ -347,14 +347,41 @@ const modelStatus = document.getElementById('model-status');
 
 async function loadModel() {
   try {
-    model = await tf.loadLayersModel('./model.json');
+    // Fetch model.json thủ công để patch config trước khi load
+    const resp = await fetch('./model.json');
+    const modelTopology = await resp.json();
+
+    // Patch InputLayer: thêm batch_input_shape từ batch_shape (TF mới đặt tên khác TF.js cũ)
+    function patchLayer(layer) {
+      if (layer.class_name === 'InputLayer' && layer.config) {
+        const cfg = layer.config;
+        if (!cfg.batch_input_shape) {
+          cfg.batch_input_shape = cfg.batch_shape || [null, IMG_SIZE, IMG_SIZE, 3];
+        }
+      }
+      if (layer.config && Array.isArray(layer.config.layers)) {
+        layer.config.layers.forEach(patchLayer);
+      }
+    }
+
+    const mc = modelTopology.modelTopology && modelTopology.modelTopology.model_config;
+    if (mc && mc.config && Array.isArray(mc.config.layers)) {
+      mc.config.layers.forEach(patchLayer);
+    }
+
+    const patchedBlob = new Blob([JSON.stringify(modelTopology)], { type: 'application/json' });
+    const patchedUrl   = URL.createObjectURL(patchedBlob);
+
+    model = await tf.loadLayersModel(patchedUrl);
+    URL.revokeObjectURL(patchedUrl);
+
     const dummy = tf.zeros([1, IMG_SIZE, IMG_SIZE, 3]);
     model.predict(dummy).dispose();
     dummy.dispose();
 
     modelStatus.className = 'model-status ready';
     modelStatus.innerHTML = '<div class="dot green"></div><span>Model sẵn sàng ✓</span>';
-    console.log('Model loaded (CNN tự train, 10 classes)');
+    console.log('Model loaded (patched, CNN tự train, 10 classes)');
   } catch(e) {
     modelStatus.className = 'model-status error';
     modelStatus.innerHTML = '<div class="dot red"></div><span>Lỗi tải model: ' + e.message + '</span>';
