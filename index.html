@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Canteen AI – UEH</title>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.0"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700;800&display=swap');
 
@@ -531,13 +530,17 @@ let cropDataUrls = [];
 let detectedCells = [];
 let isProcessing = false;
 
+// ── Label classes (phải đúng thứ tự khi train) ────────────
+// Sửa lại mảng này cho khớp với thứ tự class lúc train model
+const CLASS_NAMES = [
+  'rice', 'egg', 'tofu', 'fish', 'meat', 'soup', 'ribs', 'vegetables',
+  // thêm class nếu model có nhiều hơn 8
+];
+
 async function loadModel() {
   try {
-    model = await mobilenet.load({ version: 2, alpha: 1.0 });
-    const dummy = tf.zeros([1, 224, 224, 3]);
-    await model.classify(dummy);
-    dummy.dispose();
-    tf.dispose();
+    // Load model.json từ cùng thư mục (Hugging Face Spaces: đặt model.json + weights vào static/)
+    model = await tf.loadLayersModel('./model.json');
     modelStatus.className = 'model-status ready';
     modelStatus.innerHTML = '<div class="dot green"></div><span>Model sẵn sàng ✓</span>';
     document.getElementById('analyze-btn').disabled = false;
@@ -787,12 +790,23 @@ async function downloadAllCrops() {
   }
 }
 
-// ── Classify ────────────────────────────────────────────────
+// ── Classify bằng model.json (tf.loadLayersModel) ─────────
 async function classifyCell(canvas) {
-  const img = tf.browser.fromPixels(canvas);
-  const predictions = await model.classify(img);
-  img.dispose();
-  return predictions;
+  return tf.tidy(() => {
+    // Preprocess: resize 224×224 → normalize [0,1] → batch
+    let tensor = tf.browser.fromPixels(canvas);
+    tensor = tf.image.resizeBilinear(tensor, [224, 224]);
+    tensor = tensor.toFloat().div(255.0);
+    tensor = tensor.expandDims(0); // [1, 224, 224, 3]
+
+    const output = model.predict(tensor); // [1, num_classes]
+    const probs  = output.dataSync();
+
+    return CLASS_NAMES.map((name, i) => ({
+      className:   name,
+      probability: probs[i] || 0,
+    })).sort((a, b) => b.probability - a.probability);
+  });
 }
 
 function fmtVND(n){ return n.toLocaleString('vi-VN')+'đ'; }
@@ -831,21 +845,8 @@ async function analyze(){
       const predictions=await classifyCell(canvas);
       const bestPred=predictions[0];
       const conf=bestPred.probability;
-      const className=bestPred.className.toLowerCase();
-
-      let foodKey='rice';
-      const keywords={
-        'rice':['rice','cooked rice'],
-        'egg':['egg','fried egg'],
-        'fish':['fish','salmon'],
-        'meat':['meat','beef','pork','chicken'],
-        'soup':['soup','broth'],
-        'vegetables':['vegetable','salad','lettuce','greens'],
-        'tofu':['tofu'],
-      };
-      for(const [key,words] of Object.entries(keywords)){
-        if(words.some(w=>className.includes(w))){ foodKey=key; break; }
-      }
+      // className giờ chính là key trong FOOD_ITEMS (vd: 'rice', 'egg', ...)
+      const foodKey = FOOD_ITEMS[bestPred.className] ? bestPred.className : 'rice';
 
       const info=FOOD_ITEMS[foodKey];
       const valid=conf>=CONF_THRESH;
