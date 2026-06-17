@@ -539,8 +539,9 @@ const CLASS_NAMES = [
 
 async function loadModel() {
   try {
-    // Load model.json từ cùng thư mục (Hugging Face Spaces: đặt model.json + weights vào static/)
-    model = await tf.loadLayersModel('./model.json');
+    // Load model.json từ thư mục con "models/" (cùng cấp với index.html)
+    // Cấu trúc: index.html, và folder models/ chứa model.json + group1-shard*of3.bin
+    model = await tf.loadLayersModel('./models/model.json');
     modelStatus.className = 'model-status ready';
     modelStatus.innerHTML = '<div class="dot green"></div><span>Model sẵn sàng ✓</span>';
     document.getElementById('analyze-btn').disabled = false;
