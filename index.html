@@ -136,13 +136,14 @@ main {
   border-color: var(--coral);
 }
 .btn-secondary:hover { background:var(--soft-peach); }
-.btn-sky {
+.btn-rotate {
   background: #e8f8fc;
   color: #1a7a8a;
   border-color: var(--sky);
-  font-size:12px; padding:8px 14px; flex:none;
+  font-size: 12px;
 }
-.btn-sky:hover { background:#cff0f7; }
+.btn-rotate:hover { background:#cff0f7; }
+.btn-rotate:disabled { opacity:.35; cursor:not-allowed; }
 
 .loading {
   display:none; align-items:center; gap:10px;
@@ -240,7 +241,50 @@ main {
 .error-box.hidden { display:none; }
 .preview.hidden { display:none; }
 
-/* ── CROP IMAGE SECTION ── */
+/* ── Camera overlay ── */
+.camera-overlay {
+  position: absolute; inset: 0; z-index: 2;
+  pointer-events: none;
+}
+.cam-corner {
+  position: absolute;
+  width: 26px; height: 26px;
+  border-color: rgba(250,133,90,0.9);
+  border-style: solid;
+}
+.cam-corner.tl { top:14px; left:14px; border-width:3px 0 0 3px; border-radius:4px 0 0 0; }
+.cam-corner.tr { top:14px; right:14px; border-width:3px 3px 0 0; border-radius:0 4px 0 0; }
+.cam-corner.bl { bottom:14px; left:14px; border-width:0 0 3px 3px; border-radius:0 0 0 4px; }
+.cam-corner.br { bottom:14px; right:14px; border-width:0 3px 3px 0; border-radius:0 0 4px 0; }
+.cam-hline {
+  position:absolute; left:50%; top:50%;
+  transform:translate(-50%,-50%);
+  width:55%; height:1px;
+  background: rgba(250,133,90,0.3);
+}
+.cam-vline {
+  position:absolute; left:50%; top:50%;
+  transform:translate(-50%,-50%);
+  width:1px; height:55%;
+  background: rgba(250,133,90,0.3);
+}
+.cam-center-dot {
+  position:absolute; left:50%; top:50%;
+  transform:translate(-50%,-50%);
+  width:8px; height:8px; border-radius:50%;
+  border:2px solid rgba(250,133,90,0.75);
+}
+/* Ẩn overlay khi đã có ảnh */
+.upload-zone.has-image .camera-overlay { display:none; }
+
+/* Rotate badge hiển thị góc xoay */
+.rotate-badge {
+  position:absolute; bottom:10px; right:10px; z-index:3;
+  background:rgba(201,54,56,.82); color:#fff;
+  font-size:11px; font-weight:700; padding:3px 9px; border-radius:6px;
+  display:none;
+}
+.upload-zone.has-image .rotate-badge { display:block; }
 .crop-section { display:none; }
 .crop-section.show { display:block; }
 
@@ -360,12 +404,24 @@ footer span { color:var(--coral); font-weight:600; }
 
         <label for="file-input">
           <div class="upload-zone" id="drop-zone">
+            <!-- Camera overlay: 4 góc + crosshair -->
+            <div class="camera-overlay">
+              <div class="cam-corner tl"></div>
+              <div class="cam-corner tr"></div>
+              <div class="cam-corner bl"></div>
+              <div class="cam-corner br"></div>
+              <div class="cam-hline"></div>
+              <div class="cam-vline"></div>
+              <div class="cam-center-dot"></div>
+            </div>
             <div class="upload-placeholder" id="placeholder">
               <div class="upload-icon">📸</div>
               <div class="upload-title">Chọn hoặc kéo thả ảnh</div>
               <div class="upload-sub">Chụp thẳng, đủ sáng, thấy rõ khay</div>
             </div>
             <img class="preview hidden" id="preview" alt="preview"/>
+            <!-- Badge hiển thị góc xoay hiện tại -->
+            <div class="rotate-badge" id="rotate-badge">↻ 0°</div>
           </div>
         </label>
         <input type="file" id="file-input" accept="image/*"/>
@@ -376,6 +432,9 @@ footer span { color:var(--coral); font-weight:600; }
           </button>
           <button class="btn btn-secondary" onclick="openCamera()">
             📷 Camera
+          </button>
+          <button class="btn btn-rotate" id="rotate-btn" onclick="rotateImage()" disabled title="Xoay ảnh 90°">
+            ↻ Xoay
           </button>
         </div>
 
@@ -464,11 +523,13 @@ const MAX_IMG_SIZE = 1024;
 const MIN_IMG_WIDTH = 400;
 const MIN_IMG_HEIGHT = 300;
 
-let model = null;
-let cropDataUrls = [];   // store crop data URLs for batch download
-let detectedCells = [];  // store cell coords
-
-const modelStatus = document.getElementById('model-status');
+let model        = null;
+let currentImg   = null;
+let rotateDeg    = 0;      // góc xoay tích lũy (0/90/180/270)
+let origFileURL  = null;   // blob URL ảnh gốc chưa xoay
+let cropDataUrls = [];
+let detectedCells = [];
+let isProcessing = false;
 
 async function loadModel() {
   try {
@@ -489,25 +550,24 @@ loadModel();
 
 const fileInput   = document.getElementById('file-input');
 const dropZone    = document.getElementById('drop-zone');
-const preview     = document.getElementById('preview');
+const previewEl   = document.getElementById('preview');
 const placeholder = document.getElementById('placeholder');
 const analyzeBtn  = document.getElementById('analyze-btn');
+const rotateBtn   = document.getElementById('rotate-btn');
+const rotateBadge = document.getElementById('rotate-badge');
 const loadingEl   = document.getElementById('loading');
 const loadingTxt  = document.getElementById('loading-text');
 const errorBox    = document.getElementById('error-box');
 const resultsArea = document.getElementById('results-area');
 
-let currentImg = null;
-let isProcessing = false;
-
-fileInput.addEventListener('change', e => { if(e.target.files[0]) loadPreview(e.target.files[0]); });
+fileInput.addEventListener('change', e => { if(e.target.files[0]) handleNewFile(e.target.files[0]); });
 
 dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.style.borderColor='var(--tomato)'; });
 dropZone.addEventListener('dragleave', () => { dropZone.style.borderColor=''; });
 dropZone.addEventListener('drop', e => {
   e.preventDefault(); dropZone.style.borderColor='';
   const f = e.dataTransfer.files[0];
-  if(f && f.type.startsWith('image/')) loadPreview(f);
+  if(f && f.type.startsWith('image/')) handleNewFile(f);
 });
 
 function validateImage(img) {
@@ -515,127 +575,107 @@ function validateImage(img) {
     throw new Error(`Ảnh quá nhỏ (tối thiểu ${MIN_IMG_WIDTH}x${MIN_IMG_HEIGHT}px).`);
 }
 
-function resizeImage(img) {
-  const w=img.naturalWidth, h=img.naturalHeight;
-  if(w<=MAX_IMG_SIZE && h<=MAX_IMG_SIZE) return img;
-  const scale = Math.min(MAX_IMG_SIZE/w, MAX_IMG_SIZE/h);
+// Áp dụng rotation lên img, trả về canvas
+function applyRotation(img, deg) {
+  const rad = deg * Math.PI / 180;
+  const sin = Math.abs(Math.sin(rad)), cos = Math.abs(Math.cos(rad));
+  const W = img.naturalWidth, H = img.naturalHeight;
+  const nW = Math.round(W * cos + H * sin);
+  const nH = Math.round(W * sin + H * cos);
   const canvas = document.createElement('canvas');
-  canvas.width=Math.round(w*scale); canvas.height=Math.round(h*scale);
-  canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-  const newImg=new Image();
-  newImg.src=canvas.toDataURL('image/jpeg',0.9);
-  return newImg;
+  canvas.width = nW; canvas.height = nH;
+  const ctx = canvas.getContext('2d');
+  ctx.translate(nW / 2, nH / 2);
+  ctx.rotate(rad);
+  ctx.drawImage(img, -W / 2, -H / 2);
+  return canvas;
 }
 
-function loadPreview(file) {
-  const url = URL.createObjectURL(file);
-  const img  = new Image();
+// Resize canvas nếu quá lớn
+function resizeCanvas(canvas) {
+  const maxSide = Math.max(canvas.width, canvas.height);
+  if (maxSide <= MAX_IMG_SIZE) return canvas;
+  const scale = MAX_IMG_SIZE / maxSide;
+  const out = document.createElement('canvas');
+  out.width  = Math.round(canvas.width * scale);
+  out.height = Math.round(canvas.height * scale);
+  out.getContext('2d').drawImage(canvas, 0, 0, out.width, out.height);
+  return out;
+}
+
+// Load ảnh gốc → xoay deg → set currentImg
+function applyAndSetImage(deg, onDone) {
+  const img = new Image();
   img.onload = () => {
+    let canvas = applyRotation(img, deg);
+    canvas = resizeCanvas(canvas);
+    const newImg = new Image();
+    newImg.onload = () => { currentImg = newImg; if(onDone) onDone(newImg); };
+    newImg.src = canvas.toDataURL('image/jpeg', 0.9);
+  };
+  img.src = origFileURL;
+}
+
+// File mới: reset xoay
+function handleNewFile(file) {
+  if (origFileURL) URL.revokeObjectURL(origFileURL);
+  origFileURL = URL.createObjectURL(file);
+  rotateDeg = 0;
+  applyAndSetImage(0, img => {
     try {
-      validateImage(img);
-      currentImg = resizeImage(img);
-      preview.src = currentImg.src || currentImg.toDataURL?.() || url;
+      if(img.naturalWidth < MIN_IMG_WIDTH || img.naturalHeight < MIN_IMG_HEIGHT)
+        throw new Error(`Ảnh quá nhỏ (tối thiểu ${MIN_IMG_WIDTH}x${MIN_IMG_HEIGHT}px).`);
+      previewEl.src = img.src;
       placeholder.classList.add('hidden');
-      preview.classList.remove('hidden');
+      previewEl.classList.remove('hidden');
       dropZone.classList.add('has-image');
       analyzeBtn.disabled = !model;
+      rotateBtn.disabled  = false;
+      rotateBadge.textContent = '↻ 0°';
       errorBox.classList.add('hidden');
-      // hide old crop section when new image loaded
       document.getElementById('crop-section').classList.remove('show');
       resultsArea.innerHTML = `<div class="empty"><div class="empty-icon">✅</div><div class="empty-text">Ảnh đã tải · Nhấn Phân tích để bắt đầu</div></div>`;
-    } catch(e) {
-      showError(e.message);
-      currentImg=null; analyzeBtn.disabled=true;
-    }
-  };
-  img.onerror = () => { showError('Lỗi tải ảnh. Vui lòng chọn file ảnh hợp lệ.'); currentImg=null; analyzeBtn.disabled=true; };
-  img.src = url;
+    } catch(e) { showError(e.message); currentImg=null; analyzeBtn.disabled=true; }
+  });
 }
 
-function openCamera() {
-  fileInput.setAttribute('capture','environment');
-  fileInput.click();
+// Xoay thêm 90°
+function rotateImage() {
+  if(!origFileURL || isProcessing) return;
+  rotateDeg = (rotateDeg + 90) % 360;
+  applyAndSetImage(rotateDeg, img => {
+    previewEl.src = img.src;
+    rotateBadge.textContent = `↻ ${rotateDeg}°`;
+    document.getElementById('crop-section').classList.remove('show');
+  });
 }
 
 function showError(msg) {
   errorBox.textContent=msg; errorBox.classList.remove('hidden');
 }
 
-// ── Cell detection ─────────────────────────────────────────
+// ── Tọa độ cố định đo trên ảnh gốc 1920×2560 ──────────────
+const ORIG_W = 1920;
+const ORIG_H = 2560;
+const CELLS_FIXED = [
+  { x1:  125, y1:  121, x2: 1132, y2: 1023 },  // Ô 1
+  { x1: 1168, y1:  147, x2: 1777, y2:  896 },  // Ô 2
+  { x1:  189, y1: 1348, x2: 1048, y2: 2277 },  // Ô 3
+  { x1: 1200, y1:  959, x2: 1768, y2: 1568 },  // Ô 4
+  { x1: 1208, y1: 1694, x2: 1758, y2: 2313 },  // Ô 5
+];
+
 function detectCells(img) {
   const W = img.naturalWidth || img.width;
   const H = img.naturalHeight || img.height;
-  const canvas = document.createElement('canvas');
-  canvas.width=W; canvas.height=H;
-  const ctx=canvas.getContext('2d');
-  ctx.drawImage(img,0,0);
-  const data=ctx.getImageData(0,0,W,H).data;
-  const gray=new Uint8Array(W*H);
-  for(let i=0;i<W*H;i++) gray[i]=Math.round(0.299*data[i*4]+0.587*data[i*4+1]+0.114*data[i*4+2]);
-
-  const hProj=new Float32Array(H), vProj=new Float32Array(W);
-  const THRESH=100;
-  const hKW=Math.floor(W/5);
-  for(let y=0;y<H;y++){
-    let sum=0,count=0;
-    for(let x=0;x+hKW<W;x++){
-      let ok=true;
-      for(let k=0;k<hKW;k++) if(gray[y*W+x+k]<THRESH){ok=false;break;}
-      if(ok) sum++; count++;
-    }
-    hProj[y]=count>0?sum/count:0;
-  }
-  const vKH=Math.floor(H/5);
-  for(let x=0;x<W;x++){
-    let sum=0,count=0;
-    for(let y=0;y+vKH<H;y++){
-      let ok=true;
-      for(let k=0;k<vKH;k++) if(gray[(y+k)*W+x]<THRESH){ok=false;break;}
-      if(ok) sum++; count++;
-    }
-    vProj[x]=count>0?sum/count:0;
-  }
-
-  const hMax=Math.max(...hProj), vMax=Math.max(...vProj);
-  const hPos=[],vPos=[];
-  for(let y=0;y<H;y++) if(hProj[y]>hMax*0.4) hPos.push(y);
-  for(let x=0;x<W;x++) if(vProj[x]>vMax*0.4) vPos.push(x);
-
-  function cluster(arr,gap){
-    if(!arr.length) return [];
-    const res=[],cur=[arr[0]];
-    for(let i=1;i<arr.length;i++){
-      if(arr[i]-cur[cur.length-1]<gap) cur.push(arr[i]);
-      else{ res.push(Math.round(cur.reduce((a,b)=>a+b)/cur.length)); cur.length=0; cur.push(arr[i]); }
-    }
-    res.push(Math.round(cur.reduce((a,b)=>a+b)/cur.length));
-    return res;
-  }
-  function filterClose(arr,minRatio,total){
-    const f=[arr[0]];
-    for(let i=1;i<arr.length;i++) if(arr[i]-f[f.length-1]>total*minRatio) f.push(arr[i]);
-    if(f[f.length-1]!==arr[arr.length-1]) f.push(arr[arr.length-1]);
-    return f;
-  }
-
-  const hDiv=cluster(hPos,H/20), vDiv=cluster(vPos,W/15);
-  let hAll=[0,...hDiv.filter(h=>h>H*0.05&&h<H*0.95),H];
-  let vAll=[0,...vDiv.filter(v=>v>W*0.05&&v<W*0.95),W];
-  hAll=[...new Set(hAll)].sort((a,b)=>a-b);
-  vAll=[...new Set(vAll)].sort((a,b)=>a-b);
-  const hF=filterClose(hAll,0.07,H);
-  const vF=filterClose(vAll,0.08,W);
-
-  const PAD=Math.round(Math.min(W,H)*0.015);
-  const cells=[];
-  for(let i=0;i<hF.length-1;i++){
-    for(let j=0;j<vF.length-1;j++){
-      const y1=hF[i]+PAD,y2=hF[i+1]-PAD,x1=vF[j]+PAD,x2=vF[j+1]-PAD;
-      const ratio=(x2-x1)*(y2-y1)/(W*H);
-      if((x2-x1)>40&&(y2-y1)>40&&ratio>=0.04) cells.push({x1,y1,x2,y2});
-    }
-  }
-  return {cells,W,H};
+  // Scale tọa độ từ ảnh gốc sang ảnh hiện tại
+  const cells = CELLS_FIXED.map(c => ({
+    x1: Math.round(c.x1 * W / ORIG_W),
+    y1: Math.round(c.y1 * H / ORIG_H),
+    x2: Math.round(c.x2 * W / ORIG_W),
+    y2: Math.round(c.y2 * H / ORIG_H),
+  }));
+  return { cells, W, H };
 }
 
 // ── Crop cell canvas ────────────────────────────────────────
